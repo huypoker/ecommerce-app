@@ -39,7 +39,9 @@ router.get('/', (req, res) => {
     }
 
     const products = db.prepare(query).all(...params);
-    res.json(products);
+    const getColors = db.prepare('SELECT id, color_name, image_url FROM product_colors WHERE product_id = ?');
+    const result = products.map(p => ({ ...p, colors: getColors.all(p.id) }));
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -52,7 +54,8 @@ router.get('/:id', (req, res) => {
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }
-    res.json(product);
+    const colors = db.prepare('SELECT id, color_name, image_url FROM product_colors WHERE product_id = ?').all(product.id);
+    res.json({ ...product, colors });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -78,8 +81,18 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
       source || '', stock || 0
     );
 
+    // Save colors
+    const { colors } = req.body;
+    const insertColor = db.prepare('INSERT INTO product_colors (product_id, color_name, image_url) VALUES (?, ?, ?)');
+    if (colors && Array.isArray(colors)) {
+      for (const c of colors) {
+        if (c.color_name) insertColor.run(result.lastInsertRowid, c.color_name, c.image_url || '');
+      }
+    }
+
     const product = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(product);
+    const savedColors = db.prepare('SELECT id, color_name, image_url FROM product_colors WHERE product_id = ?').all(product.id);
+    res.status(201).json({ ...product, colors: savedColors });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -128,14 +141,25 @@ router.put('/:id', authenticateToken, requireAdmin, (req, res) => {
       req.params.id
     );
 
+    // Update colors if provided
+    const { colors } = req.body;
+    if (colors && Array.isArray(colors)) {
+      db.prepare('DELETE FROM product_colors WHERE product_id = ?').run(req.params.id);
+      const insertColor = db.prepare('INSERT INTO product_colors (product_id, color_name, image_url) VALUES (?, ?, ?)');
+      for (const c of colors) {
+        if (c.color_name) insertColor.run(req.params.id, c.color_name, c.image_url || '');
+      }
+    }
+
     const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
-    res.json(product);
+    const savedColors = db.prepare('SELECT id, color_name, image_url FROM product_colors WHERE product_id = ?').all(product.id);
+    res.json({ ...product, colors: savedColors });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Delete product (admin only)
+// Delete product
 router.delete('/:id', authenticateToken, requireAdmin, (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);

@@ -70,6 +70,14 @@ db.exec(`
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS product_colors (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    color_name TEXT NOT NULL,
+    image_url TEXT DEFAULT '',
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS cart_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
