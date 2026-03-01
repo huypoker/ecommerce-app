@@ -40,7 +40,7 @@ const publicDir = path.join(__dirname, 'public');
 app.use(express.static(publicDir));
 
 // SPA fallback: any non-API route serves index.html
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
