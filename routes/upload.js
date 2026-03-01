@@ -1,43 +1,34 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
+const { v2: cloudinary } = require('cloudinary');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Configure multer storage
-const dataDir = process.env.DATA_DIR || path.join(__dirname, '..');
-const uploadsDir = path.join(dataDir, 'uploads');
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, uniqueSuffix + ext);
-  },
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const fileFilter = (req, file, cb) => {
-  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  if (allowed.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only JPEG, PNG, GIF and WebP images are allowed'), false);
-  }
-};
-
+// Multer memory storage (no disk needed)
 const upload = multer({
-  storage,
-  fileFilter,
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, GIF and WebP images are allowed'), false);
+    }
+  },
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
-// Upload image (admin only)
+// Upload image to Cloudinary (admin only)
 router.post('/', authenticateToken, requireAdmin, (req, res) => {
-  upload.single('image')(req, res, (err) => {
+  upload.single('image')(req, res, async (err) => {
     if (err) {
       return res.status(400).json({ error: err.message });
     }
@@ -45,8 +36,23 @@ router.post('/', authenticateToken, requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    const imageUrl = `/uploads/${req.file.filename}`;
-    res.status(201).json({ url: imageUrl });
+    try {
+      // Upload buffer to Cloudinary via stream
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'ecommerce', resource_type: 'image' },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+
+      res.status(201).json({ url: result.secure_url });
+    } catch (uploadErr) {
+      res.status(500).json({ error: 'Upload to Cloudinary failed: ' + uploadErr.message });
+    }
   });
 });
 
