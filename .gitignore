@@ -1,12 +1,10 @@
 .dart_tool/
 .packages
+*.db
+*.db-shm
+*.db-wal
+uploads/
+.DS_Store
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-.pub/
-pubspec.lock
-*.iml
-.idea/
-.vscode/
-*.swp
-.DS_Store
