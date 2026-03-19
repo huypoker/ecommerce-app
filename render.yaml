@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: ecommerce-dart
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    name: ecommerce-app
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
     envVars:
       - key: PORT
         value: "3000"

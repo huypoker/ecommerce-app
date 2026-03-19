@@ -1,0 +1,1 @@
+ build/web/manifest.json:  /Users/huyngo/ecommerce_app/web/index.html /Users/huyngo/ecommerce_app/web/manifest.json

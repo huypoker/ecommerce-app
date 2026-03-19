@@ -1,10 +1,6 @@
-.dart_tool/
-.packages
+node_modules/
 *.db
 *.db-shm
 *.db-wal
 uploads/
 .DS_Store
-build/
-.flutter-plugins
-.flutter-plugins-dependencies

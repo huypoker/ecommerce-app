@@ -1,0 +1,36 @@
+const express = require('express');
+const db = require('../db');
+const { requireAdmin } = require('../middleware/auth');
+const router = express.Router();
+
+router.get('/revenue', requireAdmin, (req, res) => {
+  try {
+    const period = req.query.period || 'day';
+
+    let groupExpr;
+    if (period === 'month') groupExpr = "strftime('%Y-%m', created_at)";
+    else if (period === 'year') groupExpr = "strftime('%Y', created_at)";
+    else groupExpr = "DATE(created_at)";
+
+    const data = db.prepare(`
+      SELECT ${groupExpr} AS period, SUM(total) AS revenue, COUNT(*) AS order_count
+      FROM orders WHERE status = 'da_hoan_thanh'
+      GROUP BY ${groupExpr} ORDER BY period DESC
+    `).all();
+
+    const summary = db.prepare(`
+      SELECT COALESCE(SUM(total), 0) AS total_revenue, COUNT(*) AS total_orders
+      FROM orders WHERE status = 'da_hoan_thanh'
+    `).get();
+
+    res.json({
+      period,
+      summary: { total_revenue: summary.total_revenue, total_orders: summary.total_orders },
+      data,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;
