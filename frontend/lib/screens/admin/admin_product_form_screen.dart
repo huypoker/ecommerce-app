@@ -1,10 +1,8 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
-import '../../models/product.dart';
 import '../../services/api_service.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -44,7 +42,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
 
   Future<void> _loadProduct() async {
     setState(() => _loading = true);
-    final p = await context.read<ProductProvider>().getProduct(widget.productId!);
+    final p =
+        await context.read<ProductProvider>().getProduct(widget.productId!);
     if (p != null && mounted) {
       _codeCtrl.text = p.code;
       _nameCtrl.text = p.name;
@@ -66,7 +65,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
 
   Future<void> _pickMainImage() async {
     final token = context.read<AuthProvider>().token!;
-    await _uploadImage(token, (url) => setState(() => _imageUrlCtrl.text = url));
+    await _uploadImage(
+        token, (url) => setState(() => _imageUrlCtrl.text = url));
   }
 
   Future<void> _pickColorImage(int index) async {
@@ -83,9 +83,17 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       final file = result.files.first;
       if (file.bytes == null) return;
       setState(() => _uploading = true);
-      final url =
-          await ApiService.uploadImage(token, file.bytes!, file.name);
-      if (url.isNotEmpty) onUrl(url);
+      final url = await ApiService.uploadImage(token, file.bytes!, file.name);
+      if (url.isNotEmpty) {
+        onUrl(url);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('✅ Upload ảnh thành công!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ));
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -160,17 +168,17 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                     _field(_descCtrl, 'Mô tả', maxLines: 3),
                     Row(children: [
                       Expanded(
-                          child:
-                              _field(_importPriceCtrl, 'Giá nhập', number: true)),
+                          child: _field(_importPriceCtrl, 'Giá nhập',
+                              number: true)),
                       const SizedBox(width: 12),
                       Expanded(
-                          child:
-                              _field(_sellPriceCtrl, 'Giá bán', number: true, required: true)),
+                          child: _field(_sellPriceCtrl, 'Giá bán',
+                              number: true, required: true)),
                     ]),
                     Row(children: [
                       Expanded(
-                          child:
-                              _field(_tiktokPriceCtrl, 'Giá TikTok', number: true)),
+                          child: _field(_tiktokPriceCtrl, 'Giá TikTok',
+                              number: true)),
                       const SizedBox(width: 12),
                       Expanded(
                           child: _field(_stockCtrl, 'Tồn kho', number: true)),
@@ -207,33 +215,53 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                     const Text('Ảnh chính',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    Row(children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _imageUrlCtrl,
-                          decoration: const InputDecoration(
-                              hintText: 'URL ảnh',
-                              border: OutlineInputBorder()),
+                    if (_imageUrlCtrl.text.isEmpty) ...[
+                      Row(children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _imageUrlCtrl,
+                            decoration: const InputDecoration(
+                                hintText: 'URL ảnh hoặc upload',
+                                border: OutlineInputBorder()),
+                            onChanged: (_) => setState(() {}),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: _uploading ? null : _pickMainImage,
-                        icon: const Icon(Icons.upload),
-                        label: Text(_uploading ? 'Đang tải...' : 'Upload'),
-                      ),
-                    ]),
-                    if (_imageUrlCtrl.text.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          ApiService.resolveImageUrl(_imageUrlCtrl.text),
-                          height: 120,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const SizedBox(height: 120, child: Center(child: Icon(Icons.broken_image, size: 40))),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _uploading ? null : _pickMainImage,
+                          icon: const Icon(Icons.upload),
+                          label: Text(_uploading ? 'Đang tải...' : 'Upload'),
                         ),
+                      ]),
+                    ] else ...[
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              ApiService.resolveImageUrl(_imageUrlCtrl.text),
+                              height: 150,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 150,
+                                color: Colors.grey[200],
+                                child: const Center(child: Icon(Icons.broken_image, size: 40)),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Row(children: [
+                              _imageAction(Icons.edit, 'Đổi ảnh', Colors.blue, () => _pickMainImage()),
+                              const SizedBox(width: 4),
+                              _imageAction(Icons.delete, 'Xóa', Colors.red, () {
+                                setState(() => _imageUrlCtrl.text = '');
+                              }),
+                            ]),
+                          ),
+                        ],
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -245,8 +273,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                             style: TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16)),
                         TextButton.icon(
-                          onPressed: () => setState(
-                              () => _colors.add(_ColorEntry(name: '', imageUrl: ''))),
+                          onPressed: () => setState(() =>
+                              _colors.add(_ColorEntry(name: '', imageUrl: ''))),
                           icon: const Icon(Icons.add),
                           label: const Text('Thêm màu'),
                         ),
@@ -279,37 +307,53 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                                         setState(() => _colors.removeAt(idx))),
                               ]),
                               const SizedBox(height: 8),
-                              Row(children: [
-                                Expanded(
-                                  child: Text(
-                                      c.imageUrl.isNotEmpty
-                                          ? 'Đã có ảnh'
-                                          : 'Chưa có ảnh',
-                                      style: TextStyle(
-                                          color: c.imageUrl.isNotEmpty
-                                              ? Colors.green
-                                              : Colors.grey)),
-                                ),
-                                ElevatedButton(
-                                  onPressed:
-                                      _uploading ? null : () => _pickColorImage(idx),
-                                  child: const Text('Upload ảnh'),
-                                ),
-                              ]),
-                              if (c.imageUrl.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      ApiService.resolveImageUrl(c.imageUrl),
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) =>
-                                          const SizedBox(height: 80, child: Icon(Icons.broken_image)),
-                                    ),
+                              if (c.imageUrl.isEmpty) ...[
+                                Row(children: [
+                                  const Expanded(
+                                    child: Text('Chưa có ảnh',
+                                        style: TextStyle(color: Colors.grey)),
                                   ),
+                                  ElevatedButton.icon(
+                                    onPressed: _uploading
+                                        ? null
+                                        : () => _pickColorImage(idx),
+                                    icon: const Icon(Icons.upload, size: 16),
+                                    label: const Text('Upload ảnh'),
+                                  ),
+                                ]),
+                              ] else ...[
+                                const SizedBox(height: 8),
+                                Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(
+                                        ApiService.resolveImageUrl(c.imageUrl),
+                                        height: 100,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          height: 100,
+                                          color: Colors.grey[200],
+                                          child: const Center(child: Icon(Icons.broken_image)),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 4,
+                                      right: 4,
+                                      child: Row(children: [
+                                        _imageAction(Icons.edit, 'Đổi', Colors.blue,
+                                            () => _pickColorImage(idx)),
+                                        const SizedBox(width: 4),
+                                        _imageAction(Icons.delete, 'Xóa', Colors.red, () {
+                                          setState(() => _colors[idx].imageUrl = '');
+                                        }),
+                                      ]),
+                                    ),
+                                  ],
                                 ),
+                              ],
                             ],
                           ),
                         ),
@@ -332,14 +376,33 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
     );
   }
 
+  Widget _imageAction(IconData icon, String tooltip, Color color, VoidCallback onTap) {
+    return Material(
+      color: color.withOpacity(0.9),
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 14, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(tooltip, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          ]),
+        ),
+      ),
+    );
+  }
+
   Widget _field(TextEditingController ctrl, String label,
       {bool number = false, bool required = false, int maxLines = 1}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
         controller: ctrl,
-        decoration:
-            InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        decoration: InputDecoration(
+            labelText: label, border: const OutlineInputBorder()),
         keyboardType: number ? TextInputType.number : TextInputType.text,
         maxLines: maxLines,
         validator: required

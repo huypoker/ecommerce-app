@@ -50,7 +50,7 @@ class MyApp extends StatelessWidget {
         final path = state.matchedLocation;
 
         if (loggedIn && (path == '/login' || path == '/register')) return '/';
-        if (!loggedIn && path == '/cart') return '/login';
+        if (!loggedIn && path != '/login' && path != '/register') return '/login';
         if (path.startsWith('/admin') && (!loggedIn || !auth.isAdmin)) {
           return loggedIn ? '/' : '/login';
         }
