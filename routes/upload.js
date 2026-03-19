@@ -28,7 +28,14 @@ router.post('/', requireAdmin, upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No image file provided' });
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowedTypes.includes(req.file.mimetype)) {
+    // Detect mime from extension if multer reports octet-stream
+    let mimetype = req.file.mimetype;
+    if (mimetype === 'application/octet-stream' && req.file.originalname) {
+      const extMap = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' };
+      const ext = path.extname(req.file.originalname).toLowerCase();
+      if (extMap[ext]) mimetype = extMap[ext];
+    }
+    if (!allowedTypes.includes(mimetype)) {
       return res.status(400).json({ error: 'Only JPEG, PNG, GIF and WebP images are allowed' });
     }
 

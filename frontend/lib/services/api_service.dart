@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 class ApiService {
   static String get baseUrl {
@@ -153,7 +154,12 @@ class ApiService {
   static Future<String> uploadImage(String token, Uint8List bytes, String filename) async {
     final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/upload'));
     req.headers['Authorization'] = 'Bearer $token';
-    req.files.add(http.MultipartFile.fromBytes('image', bytes, filename: filename));
+    final ext = filename.split('.').last.toLowerCase();
+    final mimeTypes = {'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif', 'webp': 'image/webp'};
+    final contentType = mimeTypes[ext] ?? 'image/jpeg';
+    req.files.add(http.MultipartFile.fromBytes('image', bytes,
+        filename: filename,
+        contentType: MediaType.parse(contentType)));
     final res = await req.send();
     final body = await res.stream.bytesToString();
     final json = jsonDecode(body);
