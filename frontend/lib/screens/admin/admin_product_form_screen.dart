@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/product_provider.dart';
+import '../../providers/product_provider.dart'; // ignore: unused_import
 import '../../services/api_service.dart';
 import 'package:file_picker/file_picker.dart';
 
@@ -13,9 +13,16 @@ class AdminProductFormScreen extends StatefulWidget {
   State<AdminProductFormScreen> createState() => _AdminProductFormScreenState();
 }
 
+// Size groups
+const _sizeGroups = [
+  ('Size số', ['66', '73', '80', '90', '100', '110', '120', '130', '140', '150']),
+  ('Size chữ', ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'JS', 'JM', 'JL']),
+  ('Size tháng', ['6m', '12m', '18m']),
+];
+const _sourceOptions = ['Hàn', 'VNTK', 'QCCC'];
+
 class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _codeCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _importPriceCtrl = TextEditingController(text: '0');
@@ -23,9 +30,9 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
   final _tiktokPriceCtrl = TextEditingController(text: '0');
   final _imageUrlCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
-  final _sizesCtrl = TextEditingController();
-  final _sourceCtrl = TextEditingController();
   final _stockCtrl = TextEditingController(text: '0');
+  String? _source;
+  Set<String> _selectedSizes = {};
 
   List<_ColorEntry> _colors = [];
   bool _loading = false;
@@ -37,15 +44,12 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
   void initState() {
     super.initState();
     if (_isEdit) _loadProduct();
-    context.read<ProductProvider>().fetchSourceLabels();
   }
 
   Future<void> _loadProduct() async {
     setState(() => _loading = true);
-    final p =
-        await context.read<ProductProvider>().getProduct(widget.productId!);
+    final p = await context.read<ProductProvider>().getProduct(widget.productId!);
     if (p != null && mounted) {
-      _codeCtrl.text = p.code;
       _nameCtrl.text = p.name;
       _descCtrl.text = p.description;
       _importPriceCtrl.text = p.importPrice.toInt().toString();
@@ -53,9 +57,9 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       _tiktokPriceCtrl.text = p.tiktokPrice.toInt().toString();
       _imageUrlCtrl.text = p.imageUrl;
       _categoryCtrl.text = p.category;
-      _sizesCtrl.text = p.sizes;
-      _sourceCtrl.text = p.source;
       _stockCtrl.text = p.stock.toString();
+      _source = _sourceOptions.contains(p.source) ? p.source : null;
+      _selectedSizes = p.sizes.split(',').where((s) => s.trim().isNotEmpty).toSet();
       _colors = p.colors
           .map((c) => _ColorEntry(name: c.colorName, imageUrl: c.imageUrl))
           .toList();
@@ -110,7 +114,6 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
     final token = context.read<AuthProvider>().token!;
 
     final data = {
-      'code': _codeCtrl.text.trim(),
       'name': _nameCtrl.text.trim(),
       'description': _descCtrl.text.trim(),
       'import_price': int.tryParse(_importPriceCtrl.text) ?? 0,
@@ -118,8 +121,8 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
       'tiktok_price': int.tryParse(_tiktokPriceCtrl.text) ?? 0,
       'image_url': _imageUrlCtrl.text.trim(),
       'category': _categoryCtrl.text.trim(),
-      'sizes': _sizesCtrl.text.trim(),
-      'source': _sourceCtrl.text.trim(),
+      'sizes': _selectedSizes.join(','),
+      'source': _source ?? '',
       'stock': int.tryParse(_stockCtrl.text) ?? 0,
       'colors': _colors
           .where((c) => c.name.isNotEmpty)
@@ -146,7 +149,6 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pp = context.watch<ProductProvider>();
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -163,7 +165,6 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _field(_codeCtrl, 'Mã sản phẩm'),
                     _field(_nameCtrl, 'Tên sản phẩm', required: true),
                     _field(_descCtrl, 'Mô tả', maxLines: 3),
                     Row(children: [
@@ -184,33 +185,68 @@ class _AdminProductFormScreenState extends State<AdminProductFormScreen> {
                           child: _field(_stockCtrl, 'Tồn kho', number: true)),
                     ]),
                     _field(_categoryCtrl, 'Danh mục'),
-                    _field(_sizesCtrl, 'Sizes (cách nhau bởi dấu phẩy)'),
-                    // Source dropdown or text
+                    // Source dropdown — fixed options
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: pp.sourceLabels.isNotEmpty
-                          ? DropdownButtonFormField<String>(
-                              value: _sourceCtrl.text.isNotEmpty &&
-                                      pp.sourceLabels.contains(_sourceCtrl.text)
-                                  ? _sourceCtrl.text
-                                  : null,
-                              decoration: const InputDecoration(
-                                  labelText: 'Nguồn hàng',
-                                  border: OutlineInputBorder()),
-                              items: pp.sourceLabels
-                                  .map((s) => DropdownMenuItem(
-                                      value: s, child: Text(s)))
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setState(() => _sourceCtrl.text = v ?? ''),
-                            )
-                          : TextFormField(
-                              controller: _sourceCtrl,
-                              decoration: const InputDecoration(
-                                  labelText: 'Nguồn hàng',
-                                  border: OutlineInputBorder()),
-                            ),
+                      child: DropdownButtonFormField<String>(
+                        value: _source,
+                        decoration: const InputDecoration(
+                            labelText: 'Nguồn hàng',
+                            border: OutlineInputBorder()),
+                        items: _sourceOptions
+                            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                            .toList(),
+                        onChanged: (v) => setState(() => _source = v),
+                      ),
                     ),
+                    // Size selector by groups
+                    const Text('Chọn Size',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...(_sizeGroups.map((group) {
+                      final groupName = group.$1;
+                      final sizes = group.$2;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(groupName,
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: sizes.map((size) {
+                                final selected = _selectedSizes.contains(size);
+                                return FilterChip(
+                                  label: Text(size,
+                                      style: TextStyle(
+                                          color: selected
+                                              ? Colors.white
+                                              : Colors.black87,
+                                          fontSize: 12)),
+                                  selected: selected,
+                                  selectedColor:
+                                      Theme.of(context).primaryColor,
+                                  checkmarkColor: Colors.white,
+                                  backgroundColor: Colors.grey[100],
+                                  onSelected: (v) => setState(() {
+                                    if (v) {
+                                      _selectedSizes.add(size);
+                                    } else {
+                                      _selectedSizes.remove(size);
+                                    }
+                                  }),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      );
+                    })),
+                    const SizedBox(height: 8),
                     // Main image
                     const Text('Ảnh chính',
                         style: TextStyle(fontWeight: FontWeight.bold)),

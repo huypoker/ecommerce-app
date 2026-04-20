@@ -16,11 +16,12 @@ function seedDatabase() {
     console.log('   User:  user@shop.com / user123');
   }
 
-  // Seed source labels
-  const sourceLabels = ['TikTok Shop', 'Shopee', 'Facebook', 'Zalo', 'Trực tiếp'];
+  // Seed source labels — replace all with new set
+  db.prepare('DELETE FROM source_labels').run();
+  const sourceLabels = ['Hàn', 'VNTK', 'QCCC'];
   const insertLabel = db.prepare('INSERT OR IGNORE INTO source_labels (name) VALUES (?)');
   for (const label of sourceLabels) insertLabel.run(label);
-  console.log(`✅ ${sourceLabels.length} source labels seeded`);
+  console.log(`✅ ${sourceLabels.length} source labels seeded: ${sourceLabels.join(', ')}`);
 
   // Seed products
   const { cnt } = db.prepare('SELECT COUNT(*) as cnt FROM products').get();

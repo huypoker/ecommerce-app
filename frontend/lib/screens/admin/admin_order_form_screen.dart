@@ -7,6 +7,13 @@ import '../../providers/product_provider.dart';
 import '../../models/product.dart';
 import '../../services/api_service.dart';
 
+const _quickSourceOptions = ['Hàn', 'VNTK', 'QCCC'];
+const _quickSizeGroups = [
+  ('Size số', ['66', '73', '80', '90', '100', '110', '120', '130', '140', '150']),
+  ('Size chữ', ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'JS', 'JM', 'JL']),
+  ('Size tháng', ['6m', '12m', '18m']),
+];
+
 class AdminOrderFormScreen extends StatefulWidget {
   final int? orderId;
   const AdminOrderFormScreen({super.key, this.orderId});
@@ -71,6 +78,38 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
       _items.add(_OrderItemEntry(
           productId: _allProducts.first.id, quantity: 1));
     });
+  }
+
+  Future<void> _quickCreateProduct() async {
+    final token = context.read<AuthProvider>().token!;
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => const _QuickProductDialog(),
+    );
+    if (result == null || !mounted) return;
+    try {
+      final created = await ApiService.createProduct(token, result);
+      if (created['id'] != null && mounted) {
+        // Refresh product list
+        await context.read<ProductProvider>().fetchProducts();
+        if (!mounted) return;
+        final products = context.read<ProductProvider>().products;
+        setState(() {
+          _allProducts = products;
+          // Auto-add the newly created product
+          _items.add(_OrderItemEntry(productId: created['id'], quantity: 1));
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('✅ Đã tạo sản phẩm: ${created["name"]}'),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Lỗi tạo sản phẩm: $e')));
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -199,11 +238,18 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                         const Text('Sản phẩm',
                             style: TextStyle(
                                 fontSize: 16, fontWeight: FontWeight.bold)),
-                        TextButton.icon(
-                          onPressed: _addItem,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Thêm SP'),
-                        ),
+                        Row(children: [
+                          TextButton.icon(
+                            onPressed: _quickCreateProduct,
+                            icon: const Icon(Icons.add_box, size: 18),
+                            label: const Text('Tạo SP mới'),
+                          ),
+                          TextButton.icon(
+                            onPressed: _addItem,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Chọn SP'),
+                          ),
+                        ]),
                       ],
                     ),
                     if (_items.isEmpty)
@@ -317,4 +363,195 @@ class _OrderItemEntry {
   int productId;
   int quantity;
   _OrderItemEntry({required this.productId, required this.quantity});
+}
+
+// --- Quick product creation dialog ---
+class _QuickProductDialog extends StatefulWidget {
+  const _QuickProductDialog();
+  @override
+  State<_QuickProductDialog> createState() => _QuickProductDialogState();
+}
+
+class _QuickProductDialogState extends State<_QuickProductDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _sellPriceCtrl = TextEditingController(text: '0');
+  final _importPriceCtrl = TextEditingController(text: '0');
+  final _tiktokPriceCtrl = TextEditingController(text: '0');
+  final _categoryCtrl = TextEditingController();
+  String? _source;
+  Set<String> _selectedSizes = {};
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tạo sản phẩm mới'),
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Tên sản phẩm *',
+                      border: OutlineInputBorder()),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Bắt buộc' : null,
+                ),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _importPriceCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Giá nhập',
+                          border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _sellPriceCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Giá bán *',
+                          border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Bắt buộc'
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _tiktokPriceCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Giá TikTok',
+                          border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _categoryCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Danh mục',
+                          border: OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _source,
+                      decoration: const InputDecoration(
+                          labelText: 'Nguồn hàng',
+                          border: OutlineInputBorder()),
+                      items: _quickSourceOptions
+                          .map((s) =>
+                              DropdownMenuItem(value: s, child: Text(s)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _source = v),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 10),
+                const Text('Chọn Size',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 4),
+                ..._quickSizeGroups.map((group) {
+                  final groupName = group.$1;
+                  final sizes = group.$2;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(groupName,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey)),
+                        const SizedBox(height: 2),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: sizes.map((size) {
+                            final selected = _selectedSizes.contains(size);
+                            return FilterChip(
+                              label: Text(size,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: selected
+                                          ? Colors.white
+                                          : Colors.black87)),
+                              selected: selected,
+                              selectedColor:
+                                  Theme.of(context).primaryColor,
+                              checkmarkColor: Colors.white,
+                              backgroundColor: Colors.grey[100],
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 0),
+                              onSelected: (v) => setState(() {
+                                if (v) {
+                                  _selectedSizes.add(size);
+                                } else {
+                                  _selectedSizes.remove(size);
+                                }
+                              }),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Hủy')),
+        ElevatedButton(
+          onPressed: _saving
+              ? null
+              : () {
+                  if (!_formKey.currentState!.validate()) return;
+                  setState(() => _saving = true);
+                  Navigator.pop(context, {
+                    'name': _nameCtrl.text.trim(),
+                    'import_price':
+                        int.tryParse(_importPriceCtrl.text) ?? 0,
+                    'sell_price': int.tryParse(_sellPriceCtrl.text) ?? 0,
+                    'tiktok_price':
+                        int.tryParse(_tiktokPriceCtrl.text) ?? 0,
+                    'category': _categoryCtrl.text.trim(),
+                    'source': _source ?? '',
+                    'sizes': _selectedSizes.join(','),
+                    'description': '',
+                    'image_url': '',
+                    'stock': 0,
+                    'colors': [],
+                  });
+                },
+          child: const Text('Tạo'),
+        ),
+      ],
+    );
+  }
 }

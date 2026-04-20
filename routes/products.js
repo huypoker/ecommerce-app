@@ -57,15 +57,31 @@ router.get('/:id', (req, res) => {
   }
 });
 
+// Generate unique product code
+function generateProductCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let attempts = 0;
+  while (attempts < 10) {
+    const suffix = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const code = `SP${suffix}`;
+    const existing = db.prepare('SELECT id FROM products WHERE code = ?').get(code);
+    if (!existing) return code;
+    attempts++;
+  }
+  // Fallback: timestamp-based
+  return `SP${Date.now().toString(36).toUpperCase()}`;
+}
+
 // Create product
 router.post('/', requireAdmin, (req, res) => {
   try {
-    const { code, name, description, import_price, sell_price, tiktok_price, image_url, category, sizes, source, stock, colors } = req.body;
+    const { name, description, import_price, sell_price, tiktok_price, image_url, category, sizes, source, stock, colors } = req.body;
     if (!name || sell_price == null) return res.status(400).json({ error: 'Name and sell_price are required' });
 
+    const code = generateProductCode();
     const sizesStr = Array.isArray(sizes) ? sizes.join(',') : (sizes || '');
     const result = db.prepare(`INSERT INTO products (code, name, description, import_price, sell_price, tiktok_price, image_url, category, sizes, source, stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      code || '', name, description || '', import_price || 0, sell_price, tiktok_price || 0, image_url || '', category || '', sizesStr, source || '', stock || 0
+      code, name, description || '', import_price || 0, sell_price, tiktok_price || 0, image_url || '', category || '', sizesStr, source || '', stock || 0
     );
     const productId = result.lastInsertRowid;
 
