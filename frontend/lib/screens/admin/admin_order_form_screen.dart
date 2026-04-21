@@ -65,7 +65,10 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
         _noteCtrl.text = order.note ?? '';
         _status = order.status;
         _items = order.items
-            .map((i) => _OrderItemEntry(productId: i.productId, quantity: i.quantity))
+            .map((i) => _OrderItemEntry(
+                productId: i.productId,
+                quantity: i.quantity,
+                colorName: i.colorName.isEmpty ? null : i.colorName))
             .toList();
       }
     } catch (_) {}
@@ -75,8 +78,7 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
   void _addItem() {
     if (_allProducts.isEmpty) return;
     setState(() {
-      _items.add(_OrderItemEntry(
-          productId: _allProducts.first.id, quantity: 1));
+      _items.add(_OrderItemEntry(productId: _allProducts.first.id, quantity: 1));
     });
   }
 
@@ -130,7 +132,11 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
       'status': _status,
       'note': _noteCtrl.text.trim(),
       'items': _items
-          .map((i) => {'product_id': i.productId, 'quantity': i.quantity})
+          .map((i) => {
+                'product_id': i.productId,
+                'quantity': i.quantity,
+                'color_name': i.colorName ?? '',
+              })
           .toList(),
     };
 
@@ -265,55 +271,105 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                       final selectedProduct = _allProducts
                           .where((p) => p.id == item.productId)
                           .firstOrNull;
+                      final colors = selectedProduct?.colors ?? [];
                       return Card(
                         margin: const EdgeInsets.only(bottom: 8),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                flex: 3,
-                                child: DropdownButtonFormField<int>(
-                                  value: selectedProduct != null
-                                      ? item.productId
-                                      : (_allProducts.isNotEmpty
-                                          ? _allProducts.first.id
-                                          : null),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: DropdownButtonFormField<int>(
+                                      value: selectedProduct != null
+                                          ? item.productId
+                                          : (_allProducts.isNotEmpty
+                                              ? _allProducts.first.id
+                                              : null),
+                                      decoration: const InputDecoration(
+                                          labelText: 'Sản phẩm',
+                                          border: OutlineInputBorder(),
+                                          isDense: true),
+                                      isExpanded: true,
+                                      items: _allProducts
+                                          .map((p) => DropdownMenuItem(
+                                              value: p.id,
+                                              child: Text(p.name,
+                                                  overflow: TextOverflow
+                                                      .ellipsis)))
+                                          .toList(),
+                                      onChanged: (v) => setState(() {
+                                        item.productId = v!;
+                                        item.colorName = null; // reset color
+                                      }),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 70,
+                                    child: TextFormField(
+                                      initialValue: item.quantity.toString(),
+                                      decoration: const InputDecoration(
+                                          labelText: 'SL',
+                                          border: OutlineInputBorder(),
+                                          isDense: true),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (v) =>
+                                          item.quantity = int.tryParse(v) ?? 1,
+                                    ),
+                                  ),
+                                  IconButton(
+                                      icon: const Icon(Icons.delete,
+                                          color: Colors.red),
+                                      onPressed: () => setState(
+                                          () => _items.removeAt(idx))),
+                                ],
+                              ),
+                              // Color dropdown if product has colors
+                              if (colors.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<String?>(
+                                  value: item.colorName,
                                   decoration: const InputDecoration(
-                                      labelText: 'Sản phẩm',
+                                      labelText: 'Màu sắc',
                                       border: OutlineInputBorder(),
                                       isDense: true),
                                   isExpanded: true,
-                                  items: _allProducts
-                                      .map((p) => DropdownMenuItem(
-                                          value: p.id,
-                                          child: Text(p.name,
-                                              overflow:
-                                                  TextOverflow.ellipsis)))
-                                      .toList(),
+                                  items: [
+                                    const DropdownMenuItem(
+                                        value: null,
+                                        child: Text('-- Không chọn --')),
+                                    ...colors.map((c) => DropdownMenuItem(
+                                        value: c.colorName,
+                                        child: Row(children: [
+                                          if (c.imageUrl.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  right: 6),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: Image.network(
+                                                    c.imageUrl,
+                                                    width: 24,
+                                                    height: 24,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (_, __, ___) =>
+                                                        const SizedBox(
+                                                            width: 24,
+                                                            height: 24)),
+                                              ),
+                                            ),
+                                          Text(c.colorName),
+                                        ]))),
+                                  ],
                                   onChanged: (v) =>
-                                      setState(() => item.productId = v!),
+                                      setState(() => item.colorName = v),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 70,
-                                child: TextFormField(
-                                  initialValue: item.quantity.toString(),
-                                  decoration: const InputDecoration(
-                                      labelText: 'SL',
-                                      border: OutlineInputBorder(),
-                                      isDense: true),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (v) => item.quantity =
-                                      int.tryParse(v) ?? 1,
-                                ),
-                              ),
-                              IconButton(
-                                  icon: const Icon(Icons.delete,
-                                      color: Colors.red),
-                                  onPressed: () =>
-                                      setState(() => _items.removeAt(idx))),
+                              ],
                             ],
                           ),
                         ),
@@ -362,7 +418,8 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
 class _OrderItemEntry {
   int productId;
   int quantity;
-  _OrderItemEntry({required this.productId, required this.quantity});
+  String? colorName;
+  _OrderItemEntry({required this.productId, required this.quantity, this.colorName});
 }
 
 // --- Quick product creation dialog ---
@@ -381,6 +438,7 @@ class _QuickProductDialogState extends State<_QuickProductDialog> {
   final _categoryCtrl = TextEditingController();
   String? _source;
   Set<String> _selectedSizes = {};
+  List<TextEditingController> _colorCtrls = [];
   bool _saving = false;
 
   @override
@@ -517,6 +575,44 @@ class _QuickProductDialogState extends State<_QuickProductDialog> {
                     ),
                   );
                 }),
+                // Colors section
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Màu sắc',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13)),
+                    TextButton.icon(
+                      onPressed: () => setState(() =>
+                          _colorCtrls.add(TextEditingController())),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Thêm màu'),
+                    ),
+                  ],
+                ),
+                ..._colorCtrls.asMap().entries.map((e) {
+                  final i = e.key;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: e.value,
+                          decoration: InputDecoration(
+                              labelText: 'Tên màu ${i + 1}',
+                              border: const OutlineInputBorder(),
+                              isDense: true),
+                        ),
+                      ),
+                      IconButton(
+                          icon: const Icon(Icons.delete,
+                              color: Colors.red, size: 18),
+                          onPressed: () => setState(
+                              () => _colorCtrls.removeAt(i))),
+                    ]),
+                  );
+                }),
                 const SizedBox(height: 8),
               ],
             ),
@@ -546,7 +642,11 @@ class _QuickProductDialogState extends State<_QuickProductDialog> {
                     'description': '',
                     'image_url': '',
                     'stock': 0,
-                    'colors': [],
+                    'colors': _colorCtrls
+                        .where((c) => c.text.trim().isNotEmpty)
+                        .map((c) =>
+                            {'color_name': c.text.trim(), 'image_url': ''})
+                        .toList(),
                   });
                 },
           child: const Text('Tạo'),

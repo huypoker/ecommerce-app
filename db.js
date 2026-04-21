@@ -99,4 +99,10 @@ db.exec(`
   )
 `);
 
+// Migrations for new columns
+try { db.exec('ALTER TABLE orders ADD COLUMN order_code TEXT'); } catch {}
+try { db.exec('ALTER TABLE order_items ADD COLUMN color_name TEXT DEFAULT ""'); } catch {}
+try { db.exec('ALTER TABLE order_items ADD COLUMN product_code TEXT DEFAULT ""'); } catch {}
+try { db.exec('ALTER TABLE order_items ADD COLUMN image_url TEXT DEFAULT ""'); } catch {}
+
 module.exports = db;

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
+import '../../models/order.dart';
 import '../../services/api_service.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
@@ -60,6 +61,13 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  void _showDetail(Order o) {
+    showDialog(
+      context: context,
+      builder: (_) => _OrderDetailDialog(order: o, openFb: _openFb),
+    );
   }
 
   Color _statusColor(String status) {
@@ -188,7 +196,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                           final o = op.orders[i];
                           return Card(
                             margin: const EdgeInsets.only(bottom: 8),
-                            child: ExpansionTile(
+                            child: ListTile(
+                              onTap: () => _showDetail(o),
                               leading: CircleAvatar(
                                 backgroundColor:
                                     _statusColor(o.status).withOpacity(0.2),
@@ -201,6 +210,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  if (o.orderCode != null)
+                                    Text(o.orderCode!,
+                                        style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey[600],
+                                            fontWeight: FontWeight.w500)),
                                   Text(
                                       '${o.customerPhone} · ${formatVND(o.total)}'),
                                   Container(
@@ -234,70 +249,6 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                       onPressed: () => _delete(o.id)),
                                 ],
                               ),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                      16, 0, 16, 12),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (o.customerFb != null &&
-                                          o.customerFb!.isNotEmpty)
-                                        InkWell(
-                                          onTap: () => _openFb(o.customerFb),
-                                          child: Padding(
-                                            padding: const EdgeInsets.only(
-                                                bottom: 8),
-                                            child: Row(children: [
-                                              const Icon(Icons.facebook,
-                                                  size: 16,
-                                                  color: Colors.blue),
-                                              const SizedBox(width: 4),
-                                              Flexible(
-                                                child: Text(o.customerFb!,
-                                                    style: const TextStyle(
-                                                        color: Colors.blue,
-                                                        decoration:
-                                                            TextDecoration
-                                                                .underline)),
-                                              ),
-                                            ]),
-                                          ),
-                                        ),
-                                      if (o.note != null &&
-                                          o.note!.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                              bottom: 8),
-                                          child: Text('Ghi chú: ${o.note}',
-                                              style: const TextStyle(
-                                                  fontStyle:
-                                                      FontStyle.italic)),
-                                        ),
-                                      const Text('Sản phẩm:',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.w600)),
-                                      ...o.items.map((item) => Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 4),
-                                            child: Text(
-                                                '  • ${item.productName} x${item.quantity} — ${formatVND(item.price * item.quantity)}'),
-                                          )),
-                                      if (o.createdAt != null)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 8),
-                                          child: Text(
-                                              'Tạo: ${o.createdAt}',
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: Colors.grey)),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
                             ),
                           );
                         },
@@ -307,4 +258,180 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       ),
     );
   }
+}
+
+class _OrderDetailDialog extends StatelessWidget {
+  final Order order;
+  final Future<void> Function(String?) openFb;
+  const _OrderDetailDialog({required this.order, required this.openFb});
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'da_hoan_thanh': return Colors.green;
+      case 'da_tao_don': return Colors.orange;
+      default: return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.receipt_long, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              order.orderCode != null
+                  ? 'Chi tiết đơn - ${order.orderCode}'
+                  : 'Chi tiết đơn hàng',
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _statusColor(order.status).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(order.statusLabel,
+                    style: TextStyle(
+                        color: _statusColor(order.status),
+                        fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 12),
+              // Customer info
+              _infoRow(Icons.person, order.customerName),
+              if (order.customerPhone.isNotEmpty)
+                _infoRow(Icons.phone, order.customerPhone),
+              if (order.customerFb != null && order.customerFb!.isNotEmpty)
+                InkWell(
+                  onTap: () => openFb(order.customerFb),
+                  child: _infoRow(
+                      Icons.facebook, order.customerFb!, color: Colors.blue),
+                ),
+              if (order.note != null && order.note!.isNotEmpty)
+                _infoRow(Icons.notes, order.note!, italic: true),
+              if (order.createdAt != null)
+                _infoRow(Icons.calendar_today, 'Tạo: ${order.createdAt}',
+                    small: true),
+              const Divider(height: 20),
+              const Text('Sản phẩm',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 8),
+              ...order.items.map((item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Product image
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: item.imageUrl.isNotEmpty
+                              ? Image.network(
+                                  ApiService.resolveImageUrl(item.imageUrl),
+                                  width: 64,
+                                  height: 64,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) =>
+                                      _imgPlaceholder(),
+                                )
+                              : _imgPlaceholder(),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.productName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600)),
+                              if (item.productCode.isNotEmpty)
+                                Text('Mã: ${item.productCode}',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600])),
+                              if (item.colorName.isNotEmpty)
+                                Row(children: [
+                                  const Icon(Icons.circle,
+                                      size: 10, color: Colors.blueGrey),
+                                  const SizedBox(width: 4),
+                                  Text('Màu: ${item.colorName}',
+                                      style: const TextStyle(fontSize: 12)),
+                                ]),
+                              const SizedBox(height: 2),
+                              Text(
+                                  '${formatVND(item.price)} x ${item.quantity} = ${formatVND(item.price * item.quantity)}',
+                                  style: TextStyle(
+                                      color: Theme.of(context).primaryColor,
+                                      fontWeight: FontWeight.w500)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              const Divider(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Tổng cộng',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(formatVND(order.total),
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).primaryColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng')),
+      ],
+    );
+  }
+
+  Widget _infoRow(IconData icon, String text,
+      {Color? color, bool italic = false, bool small = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(children: [
+        Icon(icon, size: 16, color: color ?? Colors.grey[600]),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(text,
+              style: TextStyle(
+                  color: color,
+                  fontStyle:
+                      italic ? FontStyle.italic : FontStyle.normal,
+                  fontSize: small ? 12 : 14)),
+        ),
+      ]),
+    );
+  }
+
+  Widget _imgPlaceholder() => Container(
+        width: 64,
+        height: 64,
+        color: Colors.grey[200],
+        child: const Icon(Icons.image, color: Colors.grey),
+      );
 }

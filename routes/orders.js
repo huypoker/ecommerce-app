@@ -3,6 +3,16 @@ const db = require('../db');
 const { requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
+function generateOrderCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  for (let attempts = 0; attempts < 10; attempts++) {
+    const suffix = Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    const code = `DH${suffix}`;
+    if (!db.prepare('SELECT id FROM orders WHERE order_code = ?').get(code)) return code;
+  }
+  return `DH${Date.now().toString(36).toUpperCase()}`;
+}
+
 // Get all orders
 router.get('/', requireAdmin, (req, res) => {
   try {
@@ -62,18 +72,27 @@ router.post('/', requireAdmin, (req, res) => {
       const price = product.sell_price;
       const qty = item.quantity || 1;
       total += price * qty;
-      processedItems.push({ product_id: item.product_id, product_name: product.name, price, quantity: qty });
+      processedItems.push({
+        product_id: item.product_id,
+        product_name: product.name,
+        product_code: product.code || '',
+        image_url: product.image_url || '',
+        color_name: item.color_name || '',
+        price,
+        quantity: qty,
+      });
     }
 
     const orderStatus = status || 'chua_tao_don';
-    const result = db.prepare('INSERT INTO orders (customer_name, customer_phone, customer_fb, status, total, note) VALUES (?, ?, ?, ?, ?, ?)').run(
-      customer_name, customer_phone || '', customer_fb || '', orderStatus, total, note || ''
+    const orderCode = generateOrderCode();
+    const result = db.prepare('INSERT INTO orders (order_code, customer_name, customer_phone, customer_fb, status, total, note) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+      orderCode, customer_name, customer_phone || '', customer_fb || '', orderStatus, total, note || ''
     );
     const orderId = result.lastInsertRowid;
 
-    const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, price, quantity) VALUES (?, ?, ?, ?, ?)');
+    const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, product_code, image_url, color_name, price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     for (const item of processedItems) {
-      insertItem.run(orderId, item.product_id, item.product_name, item.price, item.quantity);
+      insertItem.run(orderId, item.product_id, item.product_name, item.product_code, item.image_url, item.color_name, item.price, item.quantity);
     }
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
@@ -103,13 +122,21 @@ router.put('/:id', requireAdmin, (req, res) => {
         const price = product.sell_price;
         const qty = item.quantity || 1;
         total += price * qty;
-        processedItems.push({ product_id: item.product_id, product_name: product.name, price, quantity: qty });
+        processedItems.push({
+          product_id: item.product_id,
+          product_name: product.name,
+          product_code: product.code || '',
+          image_url: product.image_url || '',
+          color_name: item.color_name || '',
+          price,
+          quantity: qty,
+        });
       }
 
       db.prepare('DELETE FROM order_items WHERE order_id = ?').run(orderId);
-      const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, price, quantity) VALUES (?, ?, ?, ?, ?)');
+      const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, product_code, image_url, color_name, price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
       for (const item of processedItems) {
-        insertItem.run(orderId, item.product_id, item.product_name, item.price, item.quantity);
+        insertItem.run(orderId, item.product_id, item.product_name, item.product_code, item.image_url, item.color_name, item.price, item.quantity);
       }
     }
 

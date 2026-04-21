@@ -2,6 +2,9 @@ class OrderItem {
   final int? id;
   final int productId;
   final String productName;
+  final String productCode;
+  final String imageUrl;
+  final String colorName;
   final double price;
   final int quantity;
 
@@ -9,6 +12,9 @@ class OrderItem {
     this.id,
     required this.productId,
     required this.productName,
+    this.productCode = '',
+    this.imageUrl = '',
+    this.colorName = '',
     required this.price,
     required this.quantity,
   });
@@ -17,6 +23,9 @@ class OrderItem {
         id: json['id'],
         productId: json['product_id'],
         productName: json['product_name'] ?? '',
+        productCode: json['product_code'] ?? '',
+        imageUrl: json['image_url'] ?? '',
+        colorName: json['color_name'] ?? '',
         price: (json['price'] ?? 0).toDouble(),
         quantity: json['quantity'] ?? 1,
       );
@@ -24,6 +33,7 @@ class OrderItem {
 
 class Order {
   final int id;
+  final String? orderCode;
   final String customerName;
   final String customerPhone;
   final String? customerFb;
@@ -36,6 +46,7 @@ class Order {
 
   Order({
     required this.id,
+    this.orderCode,
     required this.customerName,
     required this.customerPhone,
     this.customerFb,
@@ -49,6 +60,7 @@ class Order {
 
   factory Order.fromJson(Map<String, dynamic> json) => Order(
         id: json['id'],
+        orderCode: json['order_code'],
         customerName: json['customer_name'] ?? '',
         customerPhone: json['customer_phone'] ?? '',
         customerFb: json['customer_fb'],
