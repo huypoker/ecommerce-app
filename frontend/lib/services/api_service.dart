@@ -150,6 +150,30 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
+  // ── Users (super_admin only) ──
+  static Future<List<dynamic>> getUsers(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/api/users'), headers: _h(token));
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> createUser(
+      String token, Map<String, dynamic> data) async {
+    final res = await http.post(Uri.parse('$baseUrl/api/users'),
+        headers: _h(token), body: jsonEncode(data));
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> updateUser(
+      String token, int id, Map<String, dynamic> data) async {
+    final res = await http.put(Uri.parse('$baseUrl/api/users/$id'),
+        headers: _h(token), body: jsonEncode(data));
+    return jsonDecode(res.body);
+  }
+
+  static Future<void> deleteUser(String token, int id) async {
+    await http.delete(Uri.parse('$baseUrl/api/users/$id'), headers: _h(token));
+  }
+
   // ── Upload ──
   static Future<String> uploadImage(String token, Uint8List bytes, String filename) async {
     final req = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/upload'));

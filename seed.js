@@ -15,6 +15,13 @@ function seedDatabase() {
     console.log('   Admin: admin@shop.com / admin123');
     console.log('   User:  user@shop.com / user123');
   }
+  // Create super admin
+  const superAdminExists = db.prepare('SELECT id FROM users WHERE email = ?').get('superadmin@shop.com');
+  if (!superAdminExists) {
+    const superHash = hashPassword('superadmin123');
+    db.prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)').run('Super Admin', 'superadmin@shop.com', superHash, 'super_admin');
+    console.log('✅ Super Admin created: superadmin@shop.com / superadmin123');
+  }
 
   // Seed source labels — replace all with new set
   db.prepare('DELETE FROM source_labels').run();

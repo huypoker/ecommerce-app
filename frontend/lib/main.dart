@@ -18,6 +18,7 @@ import 'screens/admin/admin_product_form_screen.dart';
 import 'screens/admin/admin_orders_screen.dart';
 import 'screens/admin/admin_order_form_screen.dart';
 import 'screens/admin/admin_revenue_screen.dart';
+import 'screens/admin/admin_users_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +52,9 @@ class MyApp extends StatelessWidget {
 
         if (loggedIn && (path == '/login' || path == '/register')) return '/';
         if (!loggedIn && path != '/login' && path != '/register') return '/login';
+        if (path.startsWith('/admin/users') && (!loggedIn || !auth.isSuperAdmin)) {
+          return loggedIn ? '/admin' : '/login';
+        }
         if (path.startsWith('/admin') && (!loggedIn || !auth.isAdmin)) {
           return loggedIn ? '/' : '/login';
         }
@@ -79,6 +83,7 @@ class MyApp extends StatelessWidget {
             builder: (_, state) => AdminOrderFormScreen(
                 orderId: int.tryParse(state.pathParameters['id'] ?? ''))),
         GoRoute(path: '/admin/revenue', builder: (_, __) => const AdminRevenueScreen()),
+        GoRoute(path: '/admin/users', builder: (_, __) => const AdminUsersScreen()),
       ],
     );
 

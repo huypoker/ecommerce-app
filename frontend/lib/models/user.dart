@@ -13,5 +13,14 @@ class User {
         role: json['role'] ?? 'user',
       );
 
-  bool get isAdmin => role == 'admin';
+  bool get isAdmin => role == 'admin' || role == 'super_admin';
+  bool get isSuperAdmin => role == 'super_admin';
+
+  String get roleLabel {
+    switch (role) {
+      case 'super_admin': return 'Super Admin';
+      case 'admin': return 'Quản trị';
+      default: return 'Người dùng';
+    }
+  }
 }

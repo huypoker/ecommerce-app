@@ -39,12 +39,26 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// requireAdmin: allows admin + super_admin
 function requireAdmin(req, res, next) {
   const user = getUser(req);
   if (!user) return res.status(401).json({ error: 'Access token required' });
-  if (user.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
   req.user = user;
   next();
 }
 
-module.exports = { hashPassword, verifyPassword, generateToken, getUser, requireAuth, requireAdmin };
+// requireSuperAdmin: only super_admin
+function requireSuperAdmin(req, res, next) {
+  const user = getUser(req);
+  if (!user) return res.status(401).json({ error: 'Access token required' });
+  if (user.role !== 'super_admin') {
+    return res.status(403).json({ error: 'Super admin access required' });
+  }
+  req.user = user;
+  next();
+}
+
+module.exports = { hashPassword, verifyPassword, generateToken, getUser, requireAuth, requireAdmin, requireSuperAdmin };

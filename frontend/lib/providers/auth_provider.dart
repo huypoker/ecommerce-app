@@ -23,6 +23,7 @@ class AuthProvider extends ChangeNotifier {
   User? get user => _user;
   bool get isLoggedIn => _token != null;
   bool get isAdmin => _user?.isAdmin ?? false;
+  bool get isSuperAdmin => _user?.isSuperAdmin ?? false;
 
   Future<String?> login(String email, String password) async {
     try {

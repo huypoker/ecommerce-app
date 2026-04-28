@@ -105,4 +105,10 @@ try { db.exec('ALTER TABLE order_items ADD COLUMN color_name TEXT DEFAULT ""'); 
 try { db.exec('ALTER TABLE order_items ADD COLUMN product_code TEXT DEFAULT ""'); } catch {}
 try { db.exec('ALTER TABLE order_items ADD COLUMN image_url TEXT DEFAULT ""'); } catch {}
 
+// Migration: allow super_admin role (recreate constraint via new column default)
+// SQLite doesn't support ALTER COLUMN, so we allow it at app level
+try {
+  db.exec(`UPDATE users SET role = 'super_admin' WHERE role = 'super_admin'`);
+} catch {}
+
 module.exports = db;
