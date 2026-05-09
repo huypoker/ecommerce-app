@@ -32,17 +32,23 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   Color _roleColor(String role) {
     switch (role) {
-      case 'super_admin': return Colors.purple;
-      case 'admin': return const Color(0xFF40BFFF);
-      default: return Colors.grey;
+      case 'super_admin':
+        return Colors.purple;
+      case 'admin':
+        return const Color(0xFF40BFFF);
+      default:
+        return Colors.grey;
     }
   }
 
   String _roleLabel(String role) {
     switch (role) {
-      case 'super_admin': return 'Super Admin';
-      case 'admin': return 'Quản trị';
-      default: return 'Người dùng';
+      case 'super_admin':
+        return 'Super Admin';
+      case 'admin':
+        return 'Quản trị';
+      default:
+        return 'Người dùng';
     }
   }
 
@@ -92,9 +98,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       border: const OutlineInputBorder()),
                   validator: isEdit
                       ? null
-                      : (v) => (v == null || v.trim().isEmpty)
-                          ? 'Bắt buộc'
-                          : null,
+                      : (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Bắt buộc' : null,
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -106,8 +111,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     DropdownMenuItem(
                         value: 'admin', child: Text('Quản trị (Admin)')),
                     DropdownMenuItem(
-                        value: 'super_admin',
-                        child: Text('Super Admin')),
+                        value: 'super_admin', child: Text('Super Admin')),
                   ],
                   onChanged: (v) => setDialogState(() => role = v!),
                 ),
@@ -133,8 +137,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             'password': passCtrl.text.trim(),
                         };
                         if (isEdit) {
-                          await ApiService.updateUser(
-                              token, user!['id'], data);
+                          await ApiService.updateUser(token, user['id'], data);
                         } else {
                           await ApiService.createUser(token, data);
                         }
@@ -142,8 +145,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         _fetch();
                       } catch (e) {
                         if (ctx.mounted) {
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text('Lỗi: $e')));
+                          ScaffoldMessenger.of(ctx)
+                              .showSnackBar(SnackBar(content: Text('Lỗi: $e')));
                         }
                       } finally {
                         setDialogState(() => saving = false);
@@ -162,16 +165,14 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Xác nhận xóa'),
-        content:
-            Text('Xóa tài khoản "${user['name']}" (${user['email']})?'),
+        content: Text('Xóa tài khoản "${user['name']}" (${user['email']})?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Hủy')),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child:
-                  const Text('Xóa', style: TextStyle(color: Colors.red))),
+              child: const Text('Xóa', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
@@ -222,9 +223,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                           backgroundColor:
                               _roleColor(u['role']).withOpacity(0.15),
                           child: Text(
-                            (u['name'] as String)
-                                .substring(0, 1)
-                                .toUpperCase(),
+                            (u['name'] as String).substring(0, 1).toUpperCase(),
                             style: TextStyle(
                                 color: _roleColor(u['role']),
                                 fontWeight: FontWeight.bold),
@@ -232,8 +231,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         ),
                         title: Row(children: [
                           Text(u['name'],
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600)),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
                           if (isSelf) ...[
                             const SizedBox(width: 6),
                             Container(
@@ -275,14 +274,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             IconButton(
                                 icon: const Icon(Icons.edit,
                                     size: 20, color: Colors.blue),
-                                onPressed: () =>
-                                    _showUserDialog(user: u)),
+                                onPressed: () => _showUserDialog(user: u)),
                             IconButton(
                                 icon: const Icon(Icons.delete,
                                     size: 20, color: Colors.red),
-                                onPressed: isSelf
-                                    ? null
-                                    : () => _delete(u)),
+                                onPressed: isSelf ? null : () => _delete(u)),
                           ],
                         ),
                       ),
