@@ -15,7 +15,7 @@ db.exec(`
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user')),
+    role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user', 'super_admin')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
@@ -105,10 +105,29 @@ try { db.exec('ALTER TABLE order_items ADD COLUMN color_name TEXT DEFAULT ""'); 
 try { db.exec('ALTER TABLE order_items ADD COLUMN product_code TEXT DEFAULT ""'); } catch {}
 try { db.exec('ALTER TABLE order_items ADD COLUMN image_url TEXT DEFAULT ""'); } catch {}
 
-// Migration: allow super_admin role (recreate constraint via new column default)
-// SQLite doesn't support ALTER COLUMN, so we allow it at app level
+// Migration: add super_admin to users role CHECK constraint
 try {
-  db.exec(`UPDATE users SET role = 'super_admin' WHERE role = 'super_admin'`);
-} catch {}
+  const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get();
+  if (tableInfo && !tableInfo.sql.includes('super_admin')) {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('admin', 'user', 'super_admin')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO users_new SELECT * FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+      COMMIT;
+    `);
+    console.log('✅ Migrated users table: added super_admin role');
+  }
+} catch (e) {
+  console.log('Migration users role:', e.message);
+}
 
 module.exports = db;
