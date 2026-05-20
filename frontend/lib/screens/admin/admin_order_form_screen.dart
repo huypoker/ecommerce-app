@@ -35,7 +35,8 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
   int? _selectedCustomerId;
 
   List<Customer> _customerSuggestions = [];
-  bool _showSuggestions = false;
+  final _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
 
   List<_OrderItemEntry> _items = [];
   List<Product> _allProducts = [];
@@ -48,11 +49,10 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
     super.initState();
     _loadProducts();
     if (_isEdit) _loadOrder();
-    // Dismiss suggestions after focus leaves, with delay to let tap register first
     _nameFocus.addListener(() {
       if (!_nameFocus.hasFocus) {
-        Future.delayed(const Duration(milliseconds: 250), () {
-          if (mounted) setState(() => _showSuggestions = false);
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) _removeOverlay();
         });
       }
     });
@@ -60,8 +60,74 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
 
   @override
   void dispose() {
+    _removeOverlay();
     _nameFocus.dispose();
     super.dispose();
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  void _showSuggestionOverlay() {
+    _removeOverlay();
+    if (_customerSuggestions.isEmpty) return;
+    _overlayEntry = OverlayEntry(
+      builder: (ctx) => Positioned(
+        width: 400,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: const Offset(0, 56),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _customerSuggestions.length,
+                itemBuilder: (_, i) {
+                  final c = _customerSuggestions[i];
+                  return InkWell(
+                    onTap: () => _selectCustomer(c),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 11),
+                      child: Row(children: [
+                        const Icon(Icons.person_outline,
+                            size: 18, color: Colors.grey),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(c.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14)),
+                            if (c.phone.isNotEmpty)
+                              Text(c.phone,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600])),
+                          ],
+                        )),
+                        const Icon(Icons.north_west,
+                            size: 12, color: Colors.grey),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
   }
 
   Future<void> _loadProducts() async {
@@ -70,25 +136,25 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
   }
 
   Future<void> _searchCustomers(String q) async {
-    if (q.isEmpty) { setState(() { _customerSuggestions = []; _showSuggestions = false; }); return; }
+    if (q.isEmpty) { _removeOverlay(); _customerSuggestions = []; return; }
     try {
       final token = context.read<AuthProvider>().token!;
       final data = await ApiService.getCustomers(token, q: q);
-      if (mounted) setState(() {
+      if (mounted) {
         _customerSuggestions = data.map((j) => Customer.fromJson(j)).toList();
-        _showSuggestions = _customerSuggestions.isNotEmpty;
-      });
+        _showSuggestionOverlay();
+      }
     } catch (_) {}
   }
 
   void _selectCustomer(Customer c) {
+    _removeOverlay();
+    _customerSuggestions = [];
     setState(() {
       _nameCtrl.text = c.name;
       _phoneCtrl.text = c.phone;
       _fbCtrl.text = c.facebookLink;
       _selectedCustomerId = c.id;
-      _showSuggestions = false;
-      _customerSuggestions = [];
     });
   }
 
@@ -248,8 +314,9 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                       const Text('Thông tin khách hàng',
                           style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
-                      Stack(clipBehavior: Clip.none, children: [
-                        TextFormField(
+                      CompositedTransformTarget(
+                        link: _layerLink,
+                        child: TextFormField(
                           controller: _nameCtrl,
                           focusNode: _nameFocus,
                           decoration: const InputDecoration(
@@ -259,55 +326,7 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                           validator: (v) => (v == null || v.trim().isEmpty) ? 'Bắt buộc' : null,
                           onChanged: (v) { _selectedCustomerId = null; _searchCustomers(v); },
                         ),
-                        if (_showSuggestions)
-                          Positioned(
-                            top: 58, left: 0, right: 0,
-                            child: Material(
-                              elevation: 8,
-                              borderRadius: BorderRadius.circular(8),
-                              // Absorb pointer so outer GestureDetector doesn't fire
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxHeight: 220),
-                                child: ListView.builder(
-                                  shrinkWrap: true,
-                                  padding: EdgeInsets.zero,
-                                  itemCount: _customerSuggestions.length,
-                                  itemBuilder: (_, i) {
-                                    final c = _customerSuggestions[i];
-                                    return InkWell(
-                                      onTap: () => _selectCustomer(c),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 10),
-                                        child: Row(children: [
-                                          const Icon(Icons.person_outline,
-                                              size: 18, color: Colors.grey),
-                                          const SizedBox(width: 10),
-                                          Expanded(child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(c.name,
-                                                  style: const TextStyle(
-                                                      fontWeight: FontWeight.w600)),
-                                              if (c.phone.isNotEmpty)
-                                                Text(c.phone,
-                                                    style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: Colors.grey[600])),
-                                            ],
-                                          )),
-                                          const Icon(Icons.arrow_forward_ios,
-                                              size: 12, color: Colors.grey),
-                                        ]),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          ),
-                      ]),
+                      ),
                       const SizedBox(height: 12),
                       Row(children: [
                         Expanded(child: TextFormField(
