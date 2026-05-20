@@ -23,6 +23,7 @@ app.use('/api/source-labels', require('./routes/sourceLabels'));
 app.use('/api/upload', require('./routes/upload'));
 app.use('/api/stats', require('./routes/stats'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/customers', require('./routes/customers'));
 
 // Health check
 app.get('/api/health', (req, res) => {

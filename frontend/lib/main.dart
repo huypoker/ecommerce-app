@@ -19,6 +19,7 @@ import 'screens/admin/admin_orders_screen.dart';
 import 'screens/admin/admin_order_form_screen.dart';
 import 'screens/admin/admin_revenue_screen.dart';
 import 'screens/admin/admin_users_screen.dart';
+import 'screens/admin/admin_queue_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -84,6 +85,7 @@ class MyApp extends StatelessWidget {
                 orderId: int.tryParse(state.pathParameters['id'] ?? ''))),
         GoRoute(path: '/admin/revenue', builder: (_, __) => const AdminRevenueScreen()),
         GoRoute(path: '/admin/users', builder: (_, __) => const AdminUsersScreen()),
+        GoRoute(path: '/admin/queue', builder: (_, __) => const AdminQueueScreen()),
       ],
     );
 

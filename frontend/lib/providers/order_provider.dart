@@ -10,12 +10,12 @@ class OrderProvider extends ChangeNotifier {
   bool get loading => _loading;
 
   Future<void> fetchOrders(String token,
-      {String? status, String? search, String? sort}) async {
+      {String? status, String? search, String? sort, String? source}) async {
     _loading = true;
     notifyListeners();
     try {
       final data = await ApiService.getOrders(token,
-          status: status, search: search, sort: sort);
+          status: status, search: search, sort: sort, source: source);
       _orders = data.map((j) => Order.fromJson(j)).toList();
     } catch (_) {}
     _loading = false;

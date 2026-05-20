@@ -107,11 +107,12 @@ class ApiService {
 
   // ── Orders ──
   static Future<List<dynamic>> getOrders(String token,
-      {String? status, String? search, String? sort}) async {
+      {String? status, String? search, String? sort, String? source}) async {
     final params = <String, String>{};
     if (status != null) params['status'] = status;
     if (search != null) params['search'] = search;
     if (sort != null) params['sort'] = sort;
+    if (source != null) params['source'] = source;
     final uri = Uri.parse('$baseUrl/api/orders').replace(queryParameters: params.isEmpty ? null : params);
     final res = await http.get(uri, headers: _h(token));
     return jsonDecode(res.body);
@@ -146,6 +147,50 @@ class ApiService {
       {String period = 'day'}) async {
     final res = await http.get(
         Uri.parse('$baseUrl/api/stats/revenue?period=$period'),
+        headers: _h(token));
+    return jsonDecode(res.body);
+  }
+
+  // ── Customers ──
+  static Future<List<dynamic>> getCustomers(String token, {String? q}) async {
+    final params = q != null ? {'q': q} : null;
+    final uri = Uri.parse('$baseUrl/api/customers')
+        .replace(queryParameters: params);
+    final res = await http.get(uri, headers: _h(token));
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> createCustomer(
+      String token, Map<String, dynamic> data) async {
+    final res = await http.post(Uri.parse('$baseUrl/api/customers'),
+        headers: _h(token), body: jsonEncode(data));
+    return jsonDecode(res.body);
+  }
+
+  static Future<Map<String, dynamic>> updateCustomer(
+      String token, int id, Map<String, dynamic> data) async {
+    final res = await http.put(Uri.parse('$baseUrl/api/customers/$id'),
+        headers: _h(token), body: jsonEncode(data));
+    return jsonDecode(res.body);
+  }
+
+  static Future<void> deleteCustomer(String token, int id) async {
+    await http.delete(Uri.parse('$baseUrl/api/customers/$id'), headers: _h(token));
+  }
+
+  // Update order item status
+  static Future<void> updateItemStatus(
+      String token, int itemId, String status) async {
+    await http.patch(
+        Uri.parse('$baseUrl/api/customers/item-status/$itemId'),
+        headers: _h(token),
+        body: jsonEncode({'item_status': status}));
+  }
+
+  // Get pending items queue
+  static Future<List<dynamic>> getPendingQueue(String token) async {
+    final res = await http.get(
+        Uri.parse('$baseUrl/api/customers/queue/pending'),
         headers: _h(token));
     return jsonDecode(res.body);
   }

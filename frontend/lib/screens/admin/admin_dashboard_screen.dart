@@ -88,6 +88,9 @@ class AdminDashboardScreen extends StatelessWidget {
                       'Thống kê doanh thu', '/admin/revenue'),
                   _tile(context, Icons.storefront, 'Cửa hàng',
                       'Xem trang chủ', '/'),
+                  _tile(context, Icons.hourglass_bottom, 'Hàng chờ về',
+                      'Xem sản phẩm chưa về', '/admin/queue',
+                      color: Colors.orange),
                   if (auth.isSuperAdmin)
                     _tile(context, Icons.manage_accounts, 'Tài khoản',
                         'Quản lý tài khoản', '/admin/users',

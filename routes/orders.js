@@ -16,14 +16,15 @@ function generateOrderCode() {
 // Get all orders
 router.get('/', requireAdmin, (req, res) => {
   try {
-    const { status, search, sort } = req.query;
+    const { status, search, sort, source } = req.query;
     let query = 'SELECT * FROM orders WHERE 1=1';
     const params = [];
 
     if (status) { query += ' AND status = ?'; params.push(status); }
+    if (source) { query += ' AND source = ?'; params.push(source); }
     if (search) {
-      query += ' AND (customer_name LIKE ? OR customer_phone LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      query += ' AND (customer_name LIKE ? OR customer_phone LIKE ? OR order_code LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     switch (sort) {
@@ -59,7 +60,7 @@ router.get('/:id', requireAdmin, (req, res) => {
 // Create order
 router.post('/', requireAdmin, (req, res) => {
   try {
-    const { customer_name, customer_phone, customer_fb, status, note, items } = req.body;
+    const { customer_name, customer_phone, customer_fb, customer_id, source, status, note, items } = req.body;
     if (!customer_name) return res.status(400).json({ error: 'customer_name is required' });
     if (!items || !items.length) return res.status(400).json({ error: 'At least one item is required' });
 
@@ -70,6 +71,7 @@ router.post('/', requireAdmin, (req, res) => {
       const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
       if (!product) return res.status(404).json({ error: `Product ID ${item.product_id} not found` });
       const price = product.sell_price;
+      const importPrice = product.import_price || 0;
       const qty = item.quantity || 1;
       total += price * qty;
       processedItems.push({
@@ -78,21 +80,24 @@ router.post('/', requireAdmin, (req, res) => {
         product_code: product.code || '',
         image_url: product.image_url || '',
         color_name: item.color_name || '',
+        brand: item.brand || '',
         price,
+        import_price: importPrice,
         quantity: qty,
+        item_status: 'cho_hang',
       });
     }
 
     const orderStatus = status || 'chua_tao_don';
     const orderCode = generateOrderCode();
-    const result = db.prepare('INSERT INTO orders (order_code, customer_name, customer_phone, customer_fb, status, total, note) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-      orderCode, customer_name, customer_phone || '', customer_fb || '', orderStatus, total, note || ''
+    const result = db.prepare('INSERT INTO orders (order_code, customer_name, customer_phone, customer_fb, customer_id, source, status, total, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+      orderCode, customer_name, customer_phone || '', customer_fb || '', customer_id || null, source || '', orderStatus, total, note || ''
     );
     const orderId = result.lastInsertRowid;
 
-    const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, product_code, image_url, color_name, price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, product_code, image_url, color_name, brand, price, import_price, quantity, item_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (const item of processedItems) {
-      insertItem.run(orderId, item.product_id, item.product_name, item.product_code, item.image_url, item.color_name, item.price, item.quantity);
+      insertItem.run(orderId, item.product_id, item.product_name, item.product_code, item.image_url, item.color_name, item.brand, item.price, item.import_price, item.quantity, item.item_status);
     }
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
@@ -110,7 +115,7 @@ router.put('/:id', requireAdmin, (req, res) => {
     const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!existing) return res.status(404).json({ error: 'Order not found' });
 
-    const { customer_name, customer_phone, customer_fb, status, note, items } = req.body;
+    const { customer_name, customer_phone, customer_fb, customer_id, source, status, note, items } = req.body;
     let total = existing.total;
 
     if (items && items.length) {
@@ -120,6 +125,7 @@ router.put('/:id', requireAdmin, (req, res) => {
         const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id);
         if (!product) return res.status(404).json({ error: `Product ID ${item.product_id} not found` });
         const price = product.sell_price;
+        const importPrice = product.import_price || 0;
         const qty = item.quantity || 1;
         total += price * qty;
         processedItems.push({
@@ -128,22 +134,27 @@ router.put('/:id', requireAdmin, (req, res) => {
           product_code: product.code || '',
           image_url: product.image_url || '',
           color_name: item.color_name || '',
+          brand: item.brand || '',
           price,
+          import_price: importPrice,
           quantity: qty,
+          item_status: item.item_status || 'cho_hang',
         });
       }
 
       db.prepare('DELETE FROM order_items WHERE order_id = ?').run(orderId);
-      const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, product_code, image_url, color_name, price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+      const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, product_code, image_url, color_name, brand, price, import_price, quantity, item_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
       for (const item of processedItems) {
-        insertItem.run(orderId, item.product_id, item.product_name, item.product_code, item.image_url, item.color_name, item.price, item.quantity);
+        insertItem.run(orderId, item.product_id, item.product_name, item.product_code, item.image_url, item.color_name, item.brand, item.price, item.import_price, item.quantity, item.item_status);
       }
     }
 
-    db.prepare(`UPDATE orders SET customer_name = COALESCE(?, customer_name), customer_phone = COALESCE(?, customer_phone), customer_fb = COALESCE(?, customer_fb), status = COALESCE(?, status), total = ?, note = COALESCE(?, note), updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
+    db.prepare(`UPDATE orders SET customer_name = COALESCE(?, customer_name), customer_phone = COALESCE(?, customer_phone), customer_fb = COALESCE(?, customer_fb), customer_id = COALESCE(?, customer_id), source = COALESCE(?, source), status = COALESCE(?, status), total = ?, note = COALESCE(?, note), updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
       customer_name || null,
       customer_phone !== undefined ? customer_phone : null,
       customer_fb !== undefined ? customer_fb : null,
+      customer_id !== undefined ? customer_id : null,
+      source !== undefined ? source : null,
       status || null, total,
       note !== undefined ? note : null,
       orderId

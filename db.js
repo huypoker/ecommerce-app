@@ -99,11 +99,30 @@ db.exec(`
   )
 `);
 
+// Customers table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT DEFAULT '',
+    facebook_link TEXT DEFAULT '',
+    note TEXT DEFAULT '',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 // Migrations for new columns
 try { db.exec('ALTER TABLE orders ADD COLUMN order_code TEXT'); } catch {}
 try { db.exec('ALTER TABLE order_items ADD COLUMN color_name TEXT DEFAULT ""'); } catch {}
 try { db.exec('ALTER TABLE order_items ADD COLUMN product_code TEXT DEFAULT ""'); } catch {}
 try { db.exec('ALTER TABLE order_items ADD COLUMN image_url TEXT DEFAULT ""'); } catch {}
+// New migrations
+try { db.exec('ALTER TABLE orders ADD COLUMN source TEXT DEFAULT ""'); } catch {}
+try { db.exec('ALTER TABLE orders ADD COLUMN customer_id INTEGER'); } catch {}
+try { db.exec('ALTER TABLE order_items ADD COLUMN import_price REAL DEFAULT 0'); } catch {}
+try { db.exec('ALTER TABLE order_items ADD COLUMN brand TEXT DEFAULT ""'); } catch {}
+try { db.exec('ALTER TABLE order_items ADD COLUMN item_status TEXT DEFAULT "cho_hang"'); } catch {}
 
 // Migration: add super_admin to users role CHECK constraint
 try {

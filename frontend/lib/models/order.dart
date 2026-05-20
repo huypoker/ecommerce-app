@@ -5,8 +5,11 @@ class OrderItem {
   final String productCode;
   final String imageUrl;
   final String colorName;
+  final String brand;
   final double price;
+  final double importPrice;
   final int quantity;
+  final String itemStatus;
 
   OrderItem({
     this.id,
@@ -15,9 +18,23 @@ class OrderItem {
     this.productCode = '',
     this.imageUrl = '',
     this.colorName = '',
+    this.brand = '',
     required this.price,
+    this.importPrice = 0,
     required this.quantity,
+    this.itemStatus = 'cho_hang',
   });
+
+  double get profit => (price - importPrice) * quantity;
+
+  String get itemStatusLabel {
+    switch (itemStatus) {
+      case 'da_ve_kho': return 'Đã về kho';
+      case 'da_giao': return 'Đã giao';
+      case 'huy': return 'Đã hủy';
+      default: return 'Chờ hàng';
+    }
+  }
 
   factory OrderItem.fromJson(Map<String, dynamic> json) => OrderItem(
         id: json['id'],
@@ -26,8 +43,11 @@ class OrderItem {
         productCode: json['product_code'] ?? '',
         imageUrl: json['image_url'] ?? '',
         colorName: json['color_name'] ?? '',
+        brand: json['brand'] ?? '',
         price: (json['price'] ?? 0).toDouble(),
+        importPrice: (json['import_price'] ?? 0).toDouble(),
         quantity: json['quantity'] ?? 1,
+        itemStatus: json['item_status'] ?? 'cho_hang',
       );
 }
 
@@ -38,11 +58,14 @@ class Order {
   final String customerPhone;
   final String? customerFb;
   final String status;
+  final String? source;
   final double total;
   final String? note;
   final List<OrderItem> items;
   final String? createdAt;
   final String? updatedAt;
+
+  double get totalProfit => items.fold(0, (s, i) => s + i.profit);
 
   Order({
     required this.id,
@@ -51,6 +74,7 @@ class Order {
     required this.customerPhone,
     this.customerFb,
     required this.status,
+    this.source,
     required this.total,
     this.note,
     required this.items,
@@ -65,6 +89,7 @@ class Order {
         customerPhone: json['customer_phone'] ?? '',
         customerFb: json['customer_fb'],
         status: json['status'] ?? 'chua_tao_don',
+        source: json['source'],
         total: (json['total'] ?? 0).toDouble(),
         note: json['note'],
         items: (json['items'] as List?)
