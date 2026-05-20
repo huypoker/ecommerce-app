@@ -26,6 +26,7 @@ class AdminOrderFormScreen extends StatefulWidget {
 class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _nameFocus = FocusNode();
   final _phoneCtrl = TextEditingController();
   final _fbCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
@@ -47,6 +48,20 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
     super.initState();
     _loadProducts();
     if (_isEdit) _loadOrder();
+    // Dismiss suggestions after focus leaves, with delay to let tap register first
+    _nameFocus.addListener(() {
+      if (!_nameFocus.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 250), () {
+          if (mounted) setState(() => _showSuggestions = false);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameFocus.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProducts() async {
@@ -201,9 +216,7 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : GestureDetector(
-              onTap: () => setState(() => _showSuggestions = false),
-              child: SingleChildScrollView(
+          : SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Form(
                   key: _formKey,
@@ -238,6 +251,7 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                       Stack(clipBehavior: Clip.none, children: [
                         TextFormField(
                           controller: _nameCtrl,
+                          focusNode: _nameFocus,
                           decoration: const InputDecoration(
                               labelText: 'Tên khách hàng *',
                               border: OutlineInputBorder(),
@@ -249,21 +263,44 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                           Positioned(
                             top: 58, left: 0, right: 0,
                             child: Material(
-                              elevation: 6, borderRadius: BorderRadius.circular(8),
+                              elevation: 8,
+                              borderRadius: BorderRadius.circular(8),
+                              // Absorb pointer so outer GestureDetector doesn't fire
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxHeight: 200),
+                                constraints: const BoxConstraints(maxHeight: 220),
                                 child: ListView.builder(
                                   shrinkWrap: true,
+                                  padding: EdgeInsets.zero,
                                   itemCount: _customerSuggestions.length,
                                   itemBuilder: (_, i) {
                                     final c = _customerSuggestions[i];
-                                    return ListTile(
-                                      dense: true,
-                                      leading: const Icon(Icons.person_outline, size: 18),
-                                      title: Text(c.name),
-                                      subtitle: Text('${c.phone}',
-                                          style: const TextStyle(fontSize: 11)),
+                                    return InkWell(
                                       onTap: () => _selectCustomer(c),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 10),
+                                        child: Row(children: [
+                                          const Icon(Icons.person_outline,
+                                              size: 18, color: Colors.grey),
+                                          const SizedBox(width: 10),
+                                          Expanded(child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(c.name,
+                                                  style: const TextStyle(
+                                                      fontWeight: FontWeight.w600)),
+                                              if (c.phone.isNotEmpty)
+                                                Text(c.phone,
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.grey[600])),
+                                            ],
+                                          )),
+                                          const Icon(Icons.arrow_forward_ios,
+                                              size: 12, color: Colors.grey),
+                                        ]),
+                                      ),
                                     );
                                   },
                                 ),
@@ -341,9 +378,45 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                                   decoration: const InputDecoration(labelText: 'Sản phẩm',
                                       border: OutlineInputBorder(), isDense: true),
                                   isExpanded: true,
-                                  items: _allProducts.map((p) => DropdownMenuItem(
+                                  // Show only text when selected (for compact display)
+                                  selectedItemBuilder: (ctx) => _allProducts.map((p) =>
+                                    Align(alignment: Alignment.centerLeft,
+                                      child: Text(p.name,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 14)))).toList(),
+                                  items: _allProducts.map((p) {
+                                    final imgUrl = ApiService.resolveImageUrl(p.imageUrl);
+                                    return DropdownMenuItem(
                                       value: p.id,
-                                      child: Text(p.name, overflow: TextOverflow.ellipsis))).toList(),
+                                      child: Row(children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: imgUrl.isNotEmpty
+                                              ? Image.network(imgUrl,
+                                                  width: 36, height: 36,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      _productImgPlaceholder())
+                                              : _productImgPlaceholder(),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(p.name,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(fontSize: 13)),
+                                            if (p.code.isNotEmpty)
+                                              Text(p.code,
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey[500])),
+                                          ],
+                                        )),
+                                      ]),
+                                    );
+                                  }).toList(),
                                   onChanged: (v) => setState(() { item.productId = v!; item.colorName = null; }),
                                 )),
                                 const SizedBox(width: 8),
@@ -443,14 +516,20 @@ class _AdminOrderFormScreenState extends State<AdminOrderFormScreen> {
                             onPressed: _loading ? null : _save,
                             child: Text(_isEdit ? 'Cập nhật' : 'Tạo đơn hàng',
                                 style: const TextStyle(fontSize: 16)))),
-                      const SizedBox(height: 24),
+      const SizedBox(height: 24),
                     ],
                   ),
                 ),
-              ),
             ),
     );
   }
+
+  Widget _productImgPlaceholder() => Container(
+    width: 36, height: 36,
+    decoration: BoxDecoration(
+      color: Colors.grey[200],
+      borderRadius: BorderRadius.circular(4)),
+    child: const Icon(Icons.image, size: 20, color: Colors.grey));
 }
 
 class _OrderItemEntry {
